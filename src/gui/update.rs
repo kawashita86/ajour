@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use {
     super::{
         Ajour, BackupFolderKind, CatalogCategory, CatalogColumnKey, CatalogRow, CatalogSource,
@@ -32,6 +33,7 @@ use {
     std::convert::TryFrom,
     std::hash::Hasher,
     std::path::{Path, PathBuf},
+    sublime_fuzzy::best_match,
 };
 
 pub fn handle_message(ajour: &mut Ajour, message: Message) -> Result<Command<Message>> {
@@ -1816,14 +1818,19 @@ fn query_and_sort_catalog(ajour: &mut Ajour) {
             .iter()
             .filter(|a| !a.game_versions.is_empty())
             .filter(|a| {
-                let cleaned_text =
-                    format!("{} {}", a.name.to_lowercase(), a.summary.to_lowercase());
-
-                if let Some(query) = &query {
-                    cleaned_text.contains(query)
+                return if let Some(query) = &query {
+                    best_match(query.as_str(), &a.name).is_some()
                 } else {
                     true
-                }
+                };
+                //    let cleaned_text =
+                //        format!("{} {}", a.name.to_lowercase(), a.summary.to_lowercase());
+                //
+                //    if let Some(query) = &query {
+                //        cleaned_text.contains(query)
+                //    } else {
+                //        true
+                //    }
             })
             .filter(|a| {
                 a.game_versions
@@ -1849,8 +1856,35 @@ fn query_and_sort_catalog(ajour: &mut Ajour) {
             .catalog_header_state
             .previous_column_key
             .unwrap_or(CatalogColumnKey::NumDownloads);
-
         sort_catalog_addons(&mut catalog_rows, sort_direction, column_key, flavor);
+        // match query {
+        //     Some(query) => {
+        //         catalog_rows.sort_by(|a, b| {
+        //             let score_a = best_match(query.as_str(), &a.addon.name);
+        //             if score_a.is_none() {
+        //                 return Ordering::Less;
+        //             };
+
+        //             let score_b = best_match(query.as_str(), &b.addon.name);
+        //             if score_b.is_none() {
+        //                 return Ordering::Greater;
+        //             };
+
+        //             return score_a.unwrap().score().cmp(&score_b.unwrap().score());
+        //         });
+        //     }
+        //     _ => {
+        //         let sort_direction = ajour
+        //             .catalog_header_state
+        //             .previous_sort_direction
+        //             .unwrap_or(SortDirection::Desc);
+        //         let column_key = ajour
+        //             .catalog_header_state
+        //             .previous_column_key
+        //             .unwrap_or(CatalogColumnKey::NumDownloads);
+        //         sort_catalog_addons(&mut catalog_rows, sort_direction, column_key, flavor);
+        //     }
+        // };
 
         catalog_rows = catalog_rows
             .into_iter()

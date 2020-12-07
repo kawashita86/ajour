@@ -70,6 +70,7 @@ dependencies = [
  "open",
  "opener",
  "structopt",
+ "sublime_fuzzy",
  "timeago",
  "version-compare",
  "winapi 0.3.9",
@@ -3486,6 +3487,12 @@ dependencies = [
  "quote",
  "syn",
 ]
+
+[[package]]
+name = "sublime_fuzzy"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bdac3d983d073c19487ba1f5e16eda43e9c6e50aa895d87110d0febe389b66b9"
 
 [[package]]
 name = "svg_fmt"
