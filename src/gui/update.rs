@@ -1,4 +1,3 @@
-use std::cmp::Ordering;
 use {
     super::{
         Ajour, BackupFolderKind, CatalogCategory, CatalogColumnKey, CatalogRow, CatalogSource,
@@ -33,7 +32,6 @@ use {
     std::convert::TryFrom,
     std::hash::Hasher,
     std::path::{Path, PathBuf},
-    sublime_fuzzy::best_match,
 };
 
 pub fn handle_message(ajour: &mut Ajour, message: Message) -> Result<Command<Message>> {
@@ -1182,6 +1180,11 @@ pub fn handle_message(ajour: &mut Ajour, message: Message) -> Result<Command<Mes
                     .addons
                     .iter()
                     .fold(HashMap::new(), |mut map, addon| {
+                        ajour
+                            .catalog_search_state
+                            .search_index
+                            .insert(addon.id as u32, &*addon.name.to_string());
+
                         map.entry(addon.source.to_string())
                             .or_insert_with(Vec::new)
                             .append(
@@ -1818,21 +1821,6 @@ fn query_and_sort_catalog(ajour: &mut Ajour) {
             .iter()
             .filter(|a| !a.game_versions.is_empty())
             .filter(|a| {
-                return if let Some(query) = &query {
-                    best_match(query.as_str(), &a.name).is_some()
-                } else {
-                    true
-                };
-                //    let cleaned_text =
-                //        format!("{} {}", a.name.to_lowercase(), a.summary.to_lowercase());
-                //
-                //    if let Some(query) = &query {
-                //        cleaned_text.contains(query)
-                //    } else {
-                //        true
-                //    }
-            })
-            .filter(|a| {
                 a.game_versions
                     .iter()
                     .any(|gc| gc.flavor == flavor.base_flavor())
@@ -1848,43 +1836,37 @@ fn query_and_sort_catalog(ajour: &mut Ajour) {
             .map(CatalogRow::from)
             .collect();
 
-        let sort_direction = ajour
-            .catalog_header_state
-            .previous_sort_direction
-            .unwrap_or(SortDirection::Desc);
-        let column_key = ajour
-            .catalog_header_state
-            .previous_column_key
-            .unwrap_or(CatalogColumnKey::NumDownloads);
-        sort_catalog_addons(&mut catalog_rows, sort_direction, column_key, flavor);
-        // match query {
-        //     Some(query) => {
-        //         catalog_rows.sort_by(|a, b| {
-        //             let score_a = best_match(query.as_str(), &a.addon.name);
-        //             if score_a.is_none() {
-        //                 return Ordering::Less;
-        //             };
-
-        //             let score_b = best_match(query.as_str(), &b.addon.name);
-        //             if score_b.is_none() {
-        //                 return Ordering::Greater;
-        //             };
-
-        //             return score_a.unwrap().score().cmp(&score_b.unwrap().score());
-        //         });
-        //     }
-        //     _ => {
-        //         let sort_direction = ajour
-        //             .catalog_header_state
-        //             .previous_sort_direction
-        //             .unwrap_or(SortDirection::Desc);
-        //         let column_key = ajour
-        //             .catalog_header_state
-        //             .previous_column_key
-        //             .unwrap_or(CatalogColumnKey::NumDownloads);
-        //         sort_catalog_addons(&mut catalog_rows, sort_direction, column_key, flavor);
-        //     }
-        // };
+        //if there's a query we order by score of fuzzy search instead of normal behaviour
+        match query {
+            Some(query) => {
+                if query.chars().count() > 2 {
+                    let find_by_name = ajour.catalog_search_state.search_index.search(&query);
+                    let mut catalog_row_with_query: Vec<_> = Vec::new();
+                    for f in find_by_name {
+                        let search_idx = catalog_rows.iter().position(|a| a.addon.id as u32 == f);
+                        if let Some(idx) = search_idx {
+                            catalog_row_with_query.push(catalog_rows[idx].addon.clone());
+                        }
+                    }
+                    catalog_rows = catalog_row_with_query
+                        .iter()
+                        .cloned()
+                        .map(CatalogRow::from)
+                        .collect();
+                }
+            }
+            _ => {
+                let sort_direction = ajour
+                    .catalog_header_state
+                    .previous_sort_direction
+                    .unwrap_or(SortDirection::Desc);
+                let column_key = ajour
+                    .catalog_header_state
+                    .previous_column_key
+                    .unwrap_or(CatalogColumnKey::NumDownloads);
+                sort_catalog_addons(&mut catalog_rows, sort_direction, column_key, flavor);
+            }
+        };
 
         catalog_rows = catalog_rows
             .into_iter()

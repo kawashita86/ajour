@@ -28,6 +28,7 @@ use iced::{
 };
 use image::ImageFormat;
 use isahc::http::Uri;
+use simsearch::{SearchOptions, SimSearch};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
@@ -1409,6 +1410,7 @@ pub struct CatalogSearchState {
     pub source: CatalogSource,
     pub sources: Vec<CatalogSource>,
     pub sources_state: pick_list::State<CatalogSource>,
+    pub search_index: SimSearch<u32>,
 }
 
 impl Default for CatalogSearchState {
@@ -1427,6 +1429,7 @@ impl Default for CatalogSearchState {
             source: CatalogSource::Choice(catalog::Source::Curse),
             sources: CatalogSource::all(),
             sources_state: Default::default(),
+            search_index: SimSearch::new_with(SearchOptions::new().threshold(0.85)),
         }
     }
 }
